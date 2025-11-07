@@ -1,0 +1,52 @@
+version: "3.9"
+
+services:
+  mongodb:
+    image: mongo:5
+    container_name: mongodb
+    restart: always
+    environment:
+      MONGO_INITDB_DATABASE: securedb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  backend:
+    build: ./backend
+    container_name: node_backend
+    restart: always
+    ports:
+      - "4000:4000"
+    environment:
+      MONGO_URL: mongodb://mongodb:27017/securedb
+      PYTHON_SERVICE_URL: http://python_encryption:5000
+      JWT_SECRET: yourjwtsecret
+      PORT: 4000
+    depends_on:
+      - mongodb
+      - python_encryption
+
+  python_encryption:
+    build: ./python-encryption
+    container_name: python_encryption
+    restart: always
+    ports:
+      - "5000:5000"
+    volumes:
+      - encryption_key:/app # Persist encryption key if needed
+
+  frontend:
+    build: ./frontend
+    container_name: react_frontend
+    restart: always
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    environment:
+      VITE_API_URL: http://localhost:4000
+
+volumes:
+  mongo_data:
+  encryption_key:

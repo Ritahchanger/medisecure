@@ -1,0 +1,3 @@
+SERVICE-ACCOUNT-NAME=ampalax-testing-one
+SERVICE-ACCOUNT-ID=ampalax-testing-one
+EMAIL-ADDRESS=ampalax-testing-one@fluted-depth-477412-
