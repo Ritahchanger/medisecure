@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { authAPI } from "../services/auth";
-
-import type { User } from "../types";
+import type { User, UserRole } from "../types";
 
 interface AuthContextType {
   user: User | null;
@@ -11,12 +10,62 @@ interface AuthContextType {
     name: string,
     email: string,
     password: string,
-    role?: string
+    role?: UserRole
   ) => Promise<void>;
   logout: () => void;
   isLoading: boolean;
   isAuthenticated: boolean;
+
+  // RBAC Methods
+  hasRole: (roles: UserRole | UserRole[]) => boolean;
+  hasPermission: (permission: string) => boolean;
+  canAccess: (requiredRole: UserRole, resource?: string) => boolean;
+  getUserPermissions: () => string[];
 }
+
+const rolePermissions: Record<UserRole, string[]> = {
+  admin: [
+    "users:create",
+    "users:read",
+    "users:update",
+    "users:delete",
+    "patients:create",
+    "patients:read",
+    "patients:update",
+    "patients:delete",
+    "doctors:manage",
+    "admins:manage",
+    "audit:read",
+    "reports:generate",
+    "system:configure",
+  ],
+  doctor: [
+    "patients:create",
+    "patients:read",
+    "patients:update",
+    "medical_records:create",
+    "medical_records:read",
+    "medical_records:update",
+    "prescriptions:create",
+    "reports:generate",
+  ],
+  nurse: [
+    "patients:read",
+    "patients:update",
+    "medical_records:read",
+    "medical_records:update",
+    "vitals:record",
+    "medications:administer",
+  ],
+  staff: ["patients:read", "appointments:schedule", "billing:manage"],
+};
+
+const roleHierarchy: Record<UserRole, number> = {
+  admin: 4,
+  doctor: 3,
+  nurse: 2,
+  staff: 1,
+};
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -37,15 +86,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       const storedUser = localStorage.getItem("user");
 
       if (storedToken && storedUser) {
+        const userData = JSON.parse(storedUser);
         setToken(storedToken);
-        setUser(JSON.parse(storedUser));
-
-        // Optional: Verify token with backend
-        // await verifyToken(storedToken);
+        setUser(userData);
       }
     } catch (error) {
       console.error("Auth initialization error:", error);
-      // Clear invalid stored data
       localStorage.removeItem("token");
       localStorage.removeItem("user");
     } finally {
@@ -58,7 +104,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       setIsLoading(true);
       const response = await authAPI.login({ email, password });
 
-      // Match your API response structure: { message, user, token }
       if (response.user && response.token) {
         setUser(response.user);
         setToken(response.token);
@@ -81,13 +126,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     name: string,
     email: string,
     password: string,
-    role?: string
+    role: UserRole = "admin"
   ) => {
     try {
       setIsLoading(true);
       const response = await authAPI.register({ name, email, password, role });
 
-      // Auto-login after registration if your API returns token
       if (response.data?.user && response.data?.token) {
         setUser(response.data.user);
         setToken(response.data.token);
@@ -109,9 +153,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     setToken(null);
     localStorage.removeItem("token");
     localStorage.removeItem("user");
+  };
 
-    // Optional: Redirect to login page
-    // window.location.href = '/login';
+  const hasRole = (roles: UserRole | UserRole[]): boolean => {
+    if (!user || !user.role) return false;
+    
+    const rolesToCheck = Array.isArray(roles) ? roles : [roles];
+    return rolesToCheck.includes(user.role);
+  };
+
+  const hasPermission = (permission: string): boolean => {
+    if (!user || !user.role) return false;
+    
+    const userPermissions = rolePermissions[user.role] || [];
+    return userPermissions.includes(permission);
+  };
+
+  const canAccess = (requiredRole: UserRole, resource?: string): boolean => {
+    if (!user || !user.role) return false;
+    
+    const userRoleLevel = roleHierarchy[user.role];
+    const requiredRoleLevel = roleHierarchy[requiredRole];
+    
+    return userRoleLevel >= requiredRoleLevel;
+  };
+
+  const getUserPermissions = (): string[] => {
+    if (!user || !user.role) return [];
+    return rolePermissions[user.role] || [];
   };
 
   const value: AuthContextType = {
@@ -122,6 +191,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     logout,
     isLoading,
     isAuthenticated: !!user && !!token,
+    hasRole,
+    hasPermission,
+    canAccess,
+    getUserPermissions,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

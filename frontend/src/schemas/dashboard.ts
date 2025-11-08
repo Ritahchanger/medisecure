@@ -39,6 +39,7 @@ export const quickActionSchema = z.object({
   icon: z.string().min(1),
   path: z.string().min(1),
   color: z.string().min(1),
+  allowedRoles: z.array(z.enum(["admin", "doctor", "nurse"])),
 });
 
 export type QuickAction = z.infer<typeof quickActionSchema>;

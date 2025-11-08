@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import Layout from "../../components/Layout/Layout/Layout";
+import Layout from "../../../components/Layout/Layout/Layout";
 import {
   Search,
   Filter,
@@ -19,7 +19,7 @@ import {
   UserCheck,
   UserX,
 } from "lucide-react";
-import { useAuth } from "../../contexts/AuthContext";
+import { useAuth } from "../../../contexts/AuthContext";
 
 interface MedicalStaff {
   _id: string;

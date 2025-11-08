@@ -15,10 +15,10 @@ import {
   Pill,
   Activity,
 } from "lucide-react";
-import { patientSchema, type PatientFormData } from "../../schemas/patient";
-import Layout from "../../components/Layout/Layout/Layout";
+import { patientSchema, type PatientFormData } from "../../../schemas/patient";
+import Layout from "../../../components/Layout/Layout/Layout";
 
-import { patientsAPI } from "../../services/patient";
+import { patientsAPI } from "../../../services/patient";
 
 const AddPatient: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);

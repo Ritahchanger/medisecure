@@ -27,7 +27,12 @@ import {
   Download,
 } from "lucide-react";
 
-import { mockStats, mockRecentActivity, quickActions } from "./data";
+import {
+  mockStats,
+  mockRecentActivity,
+  visibleActions as quickActions,
+} from "./data";
+
 import { useAuth } from "../../contexts/AuthContext";
 
 const Dashboard: React.FC = () => {
@@ -105,14 +110,18 @@ const Dashboard: React.FC = () => {
   const getRoleBasedGreeting = () => {
     const hour = new Date().getHours();
     let timeGreeting = "Good morning";
-    
+
     if (hour >= 12 && hour < 17) timeGreeting = "Good afternoon";
     if (hour >= 17) timeGreeting = "Good evening";
 
-    const roleGreeting = user?.role === "admin" ? "Administrator" : 
-                        user?.role === "doctor" ? "Doctor" : "Nurse";
+    const roleGreeting =
+      user?.role === "admin"
+        ? "Administrator"
+        : user?.role === "doctor"
+        ? "Doctor"
+        : "Nurse";
 
-    return `${timeGreeting}, ${roleGreeting} ${user?.name?.split(' ')[0]}`;
+    return `${timeGreeting}, ${roleGreeting} ${user?.name?.split(" ")[0]}`;
   };
 
   if (isLoading) {
@@ -268,7 +277,7 @@ const Dashboard: React.FC = () => {
                     <BarChart3 className="w-5 h-5 text-gray-400" />
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {quickActions.map((action) => (
+                    {quickActions.map((action: any) => (
                       <Link
                         key={action.id}
                         to={action.path}
@@ -400,9 +409,7 @@ const Dashboard: React.FC = () => {
                     <span className="text-sm font-medium text-emerald-800">
                       HIPAA Compliant
                     </span>
-                    <p className="text-xs text-emerald-600 mt-1">
-                      Audit ready
-                    </p>
+                    <p className="text-xs text-emerald-600 mt-1">Audit ready</p>
                   </div>
                 </div>
               </div>

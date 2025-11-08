@@ -5,3 +5,6 @@ export * from "./patient"
 
 
 export * from "./global"
+
+
+export * from "./admins"

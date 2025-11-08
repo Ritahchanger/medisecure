@@ -1,11 +1,14 @@
 // src/store/index.ts
-import { configureStore } from '@reduxjs/toolkit';
+import { configureStore } from "@reduxjs/toolkit";
 
-import  patientsReducer from '../slices/patientsSlice';
+import patientsReducer from "../slices/patientsSlice";
+
+import adminSlice from "../slices/adminSlice";
 
 export const store = configureStore({
   reducer: {
     patients: patientsReducer,
+    admins: adminSlice,
   },
 });
 

@@ -8,7 +8,7 @@ export interface User {
   name: string;
   email: string;
 
-  role?:string ;
+  role?: UserRole;
 }
 
 export interface RegisterFormData {
@@ -44,3 +44,5 @@ export interface RegisterResponse {
     token: string;
   };
 }
+
+export type UserRole = "admin" | "doctor" | "nurse" | "staff";

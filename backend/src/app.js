@@ -2,9 +2,14 @@ const express = require("express");
 const cors = require("cors");
 
 const authRoutes = require("./routes/auth.routes");
+
 const patientRoutes = require("./routes/patient.routes");
 
+const adminRoutes = require("./routes/admin.routes");
+
+
 const logger = require("./utils/logger");
+
 const errorMiddleware = require("./middleware/errorMiddleware");
 
 const app = express();
@@ -21,7 +26,10 @@ app.get("/health", (req, res) => {
 
 // ===== API Routes =====
 app.use("/api/auth", authRoutes);
+
 app.use("/api/patients", patientRoutes);
+
+app.use("/api/admins",  adminRoutes );
 
 // ===== ERROR HANDLING (must be last!) =====
 app.use(errorMiddleware);

@@ -6,9 +6,9 @@ import {
   deletePatient,
   fetchPatientStats,
   clearError,
-} from "../../store/slices/patientsSlice.tsx";
-import type { AppDispatch, RootState } from "../../store/store/Store.ts";
-import Layout from "../../../components/Layout/Layout/Layout.tsx";
+} from "../../../store/slices/patientsSlice.tsx";
+import type { AppDispatch, RootState } from "../../../store/store/Store.ts";
+import Layout from "../../../../components/Layout/Layout/Layout.tsx";
 import {
   Search,
   Filter,

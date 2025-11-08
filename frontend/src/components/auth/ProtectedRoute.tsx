@@ -1,20 +1,20 @@
-import React from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
+import React from "react";
+import { Navigate, useLocation } from "react-router-dom";
 
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from "../../contexts/AuthContext";
 
-import { Loader2, Shield } from 'lucide-react';
+import { Loader2, Shield } from "lucide-react";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  requiredRole?: 'admin' | 'doctor' | 'nurse';
+  requiredRole?: "admin" | "doctor" | "nurse";
   fallbackPath?: string;
 }
 
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ 
-  children, 
-  requiredRole, 
-  fallbackPath = '/login' 
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
+  children,
+  requiredRole,
+  fallbackPath = "/login",
 }) => {
   const { isAuthenticated, user, isLoading } = useAuth();
   const location = useLocation();
@@ -33,13 +33,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
   // Redirect to login if not authenticated
   if (!isAuthenticated) {
-    return (
-      <Navigate 
-        to={fallbackPath} 
-        state={{ from: location }} 
-        replace 
-      />
-    );
+    return <Navigate to={fallbackPath} state={{ from: location }} replace />;
   }
 
   // Check role-based access
@@ -50,14 +44,17 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <Shield className="h-8 w-8 text-red-600" />
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Access Denied</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            Access Denied
+          </h2>
           <p className="text-gray-600 mb-6">
-            You don't have permission to access this page. 
-            This area requires <strong>{requiredRole}</strong> privileges.
+            You don't have permission to access this page. This area requires{" "}
+            <strong>{requiredRole}</strong> privileges.
           </p>
           <div className="space-y-3">
             <p className="text-sm text-gray-500">
-              Your current role: <span className="font-medium text-blue-600">{user?.role}</span>
+              Your current role:{" "}
+              <span className="font-medium text-blue-600">{user?.role}</span>
             </p>
             <button
               onClick={() => window.history.back()}
