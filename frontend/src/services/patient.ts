@@ -2,10 +2,14 @@ import apiClient from "../axios/axios";
 
 import type { PatientFormData } from "../schemas/patient";
 
-import type { CreatePatientResponse,PatientResponse,SimilarPatient,FileResponse } from "../types";
+import type {
+  CreatePatientResponse,
+  PatientResponse,
+  SimilarPatient,
+  FileResponse,
+} from "../types";
 
 import type { GlobalStats } from "../types";
-
 
 export const patientsAPI = {
   /**
@@ -37,9 +41,10 @@ export const patientsAPI = {
   /**
    * Get all patients (decrypted)
    */
+  // In patientsAPI.ts
   getAll: async (): Promise<PatientResponse[]> => {
     const response = await apiClient.get("/patients");
-    return response.data;
+    return response.data.data || [];
   },
 
   /**

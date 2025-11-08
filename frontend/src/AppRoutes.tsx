@@ -13,6 +13,7 @@ import ProtectedRoute from "./components/auth/ProtectedRoute";
 import Home from "./pages/Home/Home";
 
 import Doctors from "./pages/Doctors/Doctors";
+import ViewPatients from "./pages/patients/view-patients/ViewPatients";
 
 const AppRoutes = () => {
   return (
@@ -43,6 +44,14 @@ const AppRoutes = () => {
           element={
             <ProtectedRoute>
               <Doctors />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/patients"
+          element={
+            <ProtectedRoute>
+              <ViewPatients />
             </ProtectedRoute>
           }
         />

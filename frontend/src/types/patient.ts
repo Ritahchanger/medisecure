@@ -1,4 +1,11 @@
-import type { PatientFormData } from "../schemas/patient";
+export interface PatientData {
+  name: string;
+  dob: string;
+  conditions: string[];
+  symptoms: string[];
+  treatments: string[];
+  files: FileResponse[];
+}
 
 export interface PatientResponse {
   _id: string;
@@ -7,12 +14,14 @@ export interface PatientResponse {
   createdBy: string;
   createdAt: string;
   files: FileResponse[];
-  stats: {
-    conditions: string[];
-    symptoms: string[];
-    treatments: string[];
-  };
-  data: PatientFormData;
+  stats: PatientStats;
+  data: PatientData;
+}
+
+export interface PatientStats {
+  conditions: string[];
+  symptoms: string[];
+  treatments: string[];
 }
 
 export interface FileResponse {

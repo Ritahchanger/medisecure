@@ -118,24 +118,37 @@ const AddPatient: React.FC = () => {
   const onSubmit = async (data: PatientFormData) => {
     setIsSubmitting(true);
     setSubmitError(null);
-
+  
     try {
       console.log("Submitting patient data:", data);
+      console.log("Conditions:", conditions);
+      console.log("Symptoms:", symptoms);
+      console.log("Treatments:", treatments);
       console.log("Files to upload:", selectedFiles);
-
+  
+      // Ensure arrays are included in the data
+      const submitData = {
+        ...data,
+        conditions: conditions,
+        symptoms: symptoms,
+        treatments: treatments,
+      };
+  
+      console.log("Final data to submit:", submitData);
+  
       // Call the actual API
-      const response = await patientsAPI.create(data, selectedFiles);
-
+      const response = await patientsAPI.create(submitData, selectedFiles);
+  
       console.log("Patient created successfully:", response);
-
+  
       setSubmitSuccess(true);
       handleReset();
-
+  
       // Reset success message after 5 seconds
       setTimeout(() => setSubmitSuccess(false), 5000);
     } catch (error: any) {
       console.error("Error adding patient:", error);
-
+  
       // Handle different error types
       if (error.response?.data?.message) {
         setSubmitError(error.response.data.message);

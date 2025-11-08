@@ -36,6 +36,19 @@ router.get(
   asyncHandler(patientController.getAllPatients)
 );
 
+
+/**
+ * ✅ Get all patient's conditions
+ * GET /api/patient's  conditions
+ */
+router.get(
+  "/conditions",
+  auth,
+  rbac(allowedRoles),
+  asyncHandler(patientController.getAllConditions)
+);
+
+
 /**
  * ✅ Get one patient by ID
  * GET /api/patients/:id

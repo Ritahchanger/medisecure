@@ -25,6 +25,96 @@ function similarityScore(listA, listB) {
 
   return intersection.length / union.size;
 }
+exports.getPatientsByConditions = async (conditions = [], options = {}) => {
+  try {
+    const {
+      limit = 50,
+      skip = 0,
+      sortBy = "createdAt",
+      sortOrder = "desc",
+    } = options;
+
+    // Build query for conditions
+    let query = {};
+    if (conditions.length > 0) {
+      query.conditions = { $in: conditions };
+    }
+
+    const patients = await Patient.find(query)
+      .sort({ [sortBy]: sortOrder === "desc" ? -1 : 1 })
+      .limit(limit)
+      .skip(skip)
+      .populate("createdBy", "name email") // Optional: populate creator info
+      .lean();
+
+    // Decrypt patient data
+    const decryptedPatients = await Promise.all(
+      patients.map(async (p) => {
+        try {
+          const decrypted = await encryptionService.decrypt(p.encryptedData);
+          return {
+            _id: p._id,
+            name: p.name,
+            dob: p.dob,
+            createdBy: p.createdBy,
+            createdAt: p.createdAt,
+            files: p.files,
+            stats: {
+              conditions: p.conditions,
+              symptoms: p.symptoms,
+              treatments: p.treatments,
+            },
+            data: decrypted,
+            // Add condition matching info
+            matchedConditions: p.conditions.filter((condition) =>
+              conditions.includes(condition)
+            ),
+          };
+        } catch (decryptError) {
+          console.error(`❌ Error decrypting patient ${p._id}:`, decryptError);
+          return null;
+        }
+      })
+    );
+
+    // Filter out null values from decryption errors
+    return decryptedPatients.filter((patient) => patient !== null);
+  } catch (err) {
+    console.error("❌ Error retrieving patients by conditions:", err);
+    throw new Error("Failed to fetch patients by conditions");
+  }
+};
+
+exports.getAllUniqueConditions = async () => {
+  const result = await Patient.aggregate([
+    { $unwind: "$conditions" },
+    {
+      $group: {
+        _id: "$conditions",
+        patientCount: { $sum: 1 },
+        // Get some sample patients with this condition
+        samplePatients: {
+          $push: {
+            _id: "$_id",
+            name: "$name",
+            createdAt: "$createdAt",
+          },
+        },
+      },
+    },
+    {
+      $project: {
+        condition: "$_id",
+        patientCount: 1,
+        samplePatients: { $slice: ["$samplePatients", 3] }, // Limit to 3 samples
+        _id: 0,
+      },
+    },
+    { $sort: { patientCount: -1, condition: 1 } },
+  ]);
+
+  return result;
+};
 
 /**
  * ✅ CREATE PATIENT (Supports MULTIPLE FILES)
@@ -34,20 +124,45 @@ exports.createPatient = async (user, data, files = []) => {
     console.log("=== PATIENT SERVICE CREATE ===");
     let uploadedFiles = [];
 
-    // ✅ Upload all files to GCS
+    // ✅ Upload all files directly to GCS from memory buffer
     if (files && files.length > 0) {
+      console.log(
+        `📤 Processing ${files.length} files for direct GCP upload...`
+      );
+
       uploadedFiles = await Promise.all(
         files.map(async (file) => {
-          const fileName = `patients/${Date.now()}-${user.id}-${file.originalname}`;
-          const fileUrl = await gcs.uploadToGCS(file.path, fileName);
-          const fileDownloadUrl = await gcs.getSignedUrl(fileName);
+          try {
+            const fileName = `patients/${Date.now()}-${user.id}-${
+              file.originalname
+            }`;
+            console.log(`📄 Uploading directly to GCP: ${file.originalname}`);
 
-          return {
-            fileUrl,
-            fileDownloadUrl,
-            uploadedBy: user.id,
-            uploadedAt: new Date(),
-          };
+            // Use buffer upload instead of file path
+            const fileUrl = await gcs.uploadFromBuffer(
+              file.buffer,
+              fileName,
+              file.mimetype
+            );
+            const fileDownloadUrl = await gcs.getSignedUrl(fileName);
+
+            console.log(
+              `✅ Successfully uploaded to GCP: ${file.originalname}`
+            );
+
+            return {
+              fileUrl,
+              fileDownloadUrl,
+              uploadedBy: user.id,
+              uploadedAt: new Date(),
+            };
+          } catch (fileError) {
+            console.error(
+              `❌ Failed to upload file ${file.originalname}:`,
+              fileError
+            );
+            throw fileError;
+          }
         })
       );
     }
@@ -94,7 +209,6 @@ exports.createPatient = async (user, data, files = []) => {
     throw new Error("Failed to create patient");
   }
 };
-
 /**
  * ✅ GET ALL PATIENTS — decrypted
  */
@@ -141,7 +255,7 @@ exports.getAllPatients = async (user) => {
 exports.getPatientById = async (user, id) => {
   try {
     const p = await Patient.findById(id);
-    
+
     if (!p) throw new Error("Patient not found");
 
     const decrypted = await encryptionService.decrypt(p.encryptedData);
