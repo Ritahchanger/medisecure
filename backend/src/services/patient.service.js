@@ -1,3 +1,4 @@
+// services/patient.service.js
 const Patient = require("../models/Patient");
 const AuditLog = require("../models/AuditLog");
 const encryptionService = require("./encryption.service");
@@ -28,17 +29,16 @@ function similarityScore(listA, listB) {
 /**
  * ✅ CREATE PATIENT (Supports MULTIPLE FILES)
  */
-exports.create = async (user, data, files = []) => {
+exports.createPatient = async (user, data, files = []) => {
   try {
+    console.log("=== PATIENT SERVICE CREATE ===");
     let uploadedFiles = [];
 
     // ✅ Upload all files to GCS
     if (files && files.length > 0) {
       uploadedFiles = await Promise.all(
         files.map(async (file) => {
-          const fileName = `patients/${Date.now()}-${user.id}-${
-            file.originalname
-          }`;
+          const fileName = `patients/${Date.now()}-${user.id}-${file.originalname}`;
           const fileUrl = await gcs.uploadToGCS(file.path, fileName);
           const fileDownloadUrl = await gcs.getSignedUrl(fileName);
 
@@ -59,7 +59,7 @@ exports.create = async (user, data, files = []) => {
       conditions: data.conditions || [],
       symptoms: data.symptoms || [],
       treatments: data.treatments || [],
-      files: uploadedFiles, // ✅ NOW MULTIPLE FILES
+      files: uploadedFiles,
     };
 
     // ✅ Encrypt medical JSON
@@ -74,7 +74,7 @@ exports.create = async (user, data, files = []) => {
       dob: data.dob,
       encryptedData: encrypted,
       createdBy: user.id,
-      files: uploadedFiles, // ✅ Store multiple file entries
+      files: uploadedFiles,
       ...stats,
     });
 
@@ -98,7 +98,7 @@ exports.create = async (user, data, files = []) => {
 /**
  * ✅ GET ALL PATIENTS — decrypted
  */
-exports.getAll = async (user) => {
+exports.getAllPatients = async (user) => {
   try {
     const patients = await Patient.find().sort({ createdAt: -1 });
 
@@ -112,7 +112,7 @@ exports.getAll = async (user) => {
           dob: p.dob,
           createdBy: p.createdBy,
           createdAt: p.createdAt,
-          files: p.files, // ✅ ARRAY OF FILES
+          files: p.files,
           stats: {
             conditions: p.conditions,
             symptoms: p.symptoms,
@@ -138,7 +138,7 @@ exports.getAll = async (user) => {
 /**
  * ✅ GET ONE PATIENT (with decryption)
  */
-exports.getById = async (user, id) => {
+exports.getPatientById = async (user, id) => {
   try {
     const p = await Patient.findById(id);
     
@@ -158,7 +158,7 @@ exports.getById = async (user, id) => {
       dob: p.dob,
       createdBy: p.createdBy,
       createdAt: p.createdAt,
-      files: p.files, // ✅ ARRAY OF FILES
+      files: p.files,
       stats: {
         conditions: p.conditions,
         symptoms: p.symptoms,
@@ -175,7 +175,7 @@ exports.getById = async (user, id) => {
 /**
  * ✅ SIMILAR PATIENT CASES
  */
-exports.findSimilar = async (id) => {
+exports.findSimilarPatients = async (id) => {
   const target = await Patient.findById(id);
   if (!target) throw new Error("Patient not found");
 
@@ -197,7 +197,7 @@ exports.findSimilar = async (id) => {
 /**
  * ✅ GLOBAL STATS (Big Data aggregation)
  */
-exports.stats = async () => {
+exports.getPatientStats = async () => {
   const result = await Patient.aggregate([
     { $unwind: "$conditions" },
     {

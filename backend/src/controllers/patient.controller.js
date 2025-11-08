@@ -1,23 +1,86 @@
+// controllers/patient.controller.js
 const patientService = require("../services/patient.service");
 
 /**
  * @desc Create new patient record
  * @route POST /api/patients
  * @access Protected (doctor, nurse, admin)
- * Accepts optional file: req.file
+ * Accepts multiple files: req.files
  */
 exports.createPatient = async (req, res) => {
-  const user = req.user; // from auth middleware
-  const data = req.body;
-  const filePath = req.file ? req.file.path : null; // if using multer
+  try {
+    console.log("=== CREATE PATIENT CONTROLLER ===");
+    console.log("📥 Request body keys:", Object.keys(req.body));
+    console.log("📁 Files received:", req.files ? req.files.length : 0);
+    
+    if (req.files) {
+      req.files.forEach((file, index) => {
+        console.log(`📄 File ${index + 1}:`, file.originalname);
+      });
+    }
 
-  const result = await patientService.create(user, data, filePath);
+    // Check if patientData exists
+    if (!req.body.patientData) {
+      console.log("❌ patientData is missing from request");
+      return res.status(400).json({
+        success: false,
+        message: "patientData is required in the request body"
+      });
+    }
 
-  return res.status(201).json({
-    success: true,
-    message: result.message,
-    patientId: result.patientId,
-  });
+    console.log("📋 Raw patientData:", req.body.patientData);
+
+    // Parse the patientData
+    let patientData;
+    try {
+      patientData = JSON.parse(req.body.patientData);
+      console.log("✅ Successfully parsed patientData:", patientData);
+    } catch (parseError) {
+      console.log("❌ JSON parse error:", parseError.message);
+      return res.status(400).json({
+        success: false,
+        message: "Invalid patientData JSON format: " + parseError.message
+      });
+    }
+
+    // Validate required fields
+    if (!patientData.name || !patientData.dob || !patientData.encryptedData) {
+      console.log("❌ Missing required fields in patientData");
+      return res.status(400).json({
+        success: false,
+        message: "Name, DOB, and encryptedData are required fields"
+      });
+    }
+
+    console.log("👤 User from auth:", req.user);
+    console.log("📁 Files to process:", req.files ? req.files.length : 0);
+
+    // Call the service with the correct parameters
+    console.log("🔄 Calling patientService.createPatient...");
+    const result = await patientService.createPatient(
+      req.user, 
+      patientData, 
+      req.files || []
+    );
+    
+    console.log("✅ Patient created successfully:", result.patientId);
+    
+    res.status(201).json({
+      success: true,
+      message: "Patient created successfully",
+      data: result
+    });
+
+  } catch (error) {
+    console.error("❌ Controller Error Details:");
+    console.error("Error message:", error.message);
+    console.error("Error stack:", error.stack);
+    
+    res.status(500).json({
+      success: false,
+      message: error.message || "Internal server error in controller"
+    });
+  }
 };
 
 /**
@@ -27,7 +90,7 @@ exports.createPatient = async (req, res) => {
  */
 exports.getAllPatients = async (req, res) => {
   const user = req.user;
-  const patients = await patientService.getAll(user);
+  const patients = await patientService.getAllPatients(user);
 
   return res.status(200).json({
     success: true,
@@ -45,7 +108,7 @@ exports.getPatientById = async (req, res) => {
   const user = req.user;
   const { id } = req.params;
 
-  const patient = await patientService.getById(user, id);
+  const patient = await patientService.getPatientById(user, id);
 
   return res.status(200).json({
     success: true,
@@ -59,7 +122,7 @@ exports.getPatientById = async (req, res) => {
  * @access Protected
  */
 exports.getPatientStats = async (req, res) => {
-  const stats = await patientService.stats();
+  const stats = await patientService.getPatientStats();
 
   return res.status(200).json({
     success: true,
@@ -74,7 +137,7 @@ exports.getPatientStats = async (req, res) => {
  */
 exports.getSimilarPatients = async (req, res) => {
   const { id } = req.params;
-  const similar = await patientService.findSimilar(id);
+  const similar = await patientService.findSimilarPatients(id);
 
   return res.status(200).json({
     success: true,

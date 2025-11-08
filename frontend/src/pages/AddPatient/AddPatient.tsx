@@ -18,9 +18,12 @@ import {
 import { patientSchema, type PatientFormData } from "../../schemas/patient";
 import Layout from "../../components/Layout/Layout/Layout";
 
+import { patientsAPI } from "../../services/patient";
+
 const AddPatient: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [conditions, setConditions] = useState<string[]>([]);
   const [symptoms, setSymptoms] = useState<string[]>([]);
@@ -36,7 +39,7 @@ const AddPatient: React.FC = () => {
     reset,
     setValue,
     watch,
-  } = useForm<PatientFormData>({
+  } = useForm<PatientFormData | any>({
     resolver: zodResolver(patientSchema),
     mode: "onChange",
     defaultValues: {
@@ -114,30 +117,33 @@ const AddPatient: React.FC = () => {
 
   const onSubmit = async (data: PatientFormData) => {
     setIsSubmitting(true);
+    setSubmitError(null);
 
     try {
-      // Create FormData for file upload
-      const formData = new FormData();
-
-      // Append patient data as JSON
-      formData.append("patientData", JSON.stringify(data));
-
-      // Append files
-      selectedFiles.forEach((file) => {
-        formData.append("files", file);
-      });
-
       console.log("Submitting patient data:", data);
       console.log("Files to upload:", selectedFiles);
 
-      // Simulate API call with file upload
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      // Call the actual API
+      const response = await patientsAPI.create(data, selectedFiles);
+
+      console.log("Patient created successfully:", response);
 
       setSubmitSuccess(true);
       handleReset();
+
+      // Reset success message after 5 seconds
       setTimeout(() => setSubmitSuccess(false), 5000);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error adding patient:", error);
+
+      // Handle different error types
+      if (error.response?.data?.message) {
+        setSubmitError(error.response.data.message);
+      } else if (error.message) {
+        setSubmitError(error.message);
+      } else {
+        setSubmitError("Failed to create patient. Please try again.");
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -152,11 +158,12 @@ const AddPatient: React.FC = () => {
     setCurrentCondition("");
     setCurrentSymptom("");
     setCurrentTreatment("");
+    setSubmitError(null);
   };
 
   return (
     <Layout>
-      <div className="min-h-screen  from-slate-50 to-blue-50 py-8 px-4 sm:px-6 lg:px-8">
+      <div className="min-h-screen from-slate-50 to-blue-50 py-8 px-4 sm:px-6 lg:px-8">
         <div className="max-w-6xl mx-auto">
           {/* Header Section */}
           <div className="text-center mb-4">
@@ -185,10 +192,23 @@ const AddPatient: React.FC = () => {
             </div>
           )}
 
+          {/* Error Alert */}
+          {submitError && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl">
+              <div className="flex items-center">
+                <AlertCircle className="w-5 h-5 text-red-500" />
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-red-800">
+                    Failed to register patient
+                  </h3>
+                  <p className="text-sm text-red-700 mt-1">{submitError}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Main Form Card */}
           <div className="bg-white rounded-2xl shadow-lg border border-gray-200">
-            {/* Form Header */}
-
             {/* Form Content */}
             <div className="p-6">
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -542,8 +562,6 @@ const AddPatient: React.FC = () => {
               </form>
             </div>
           </div>
-
-          {/* Footer Note */}
         </div>
       </div>
     </Layout>

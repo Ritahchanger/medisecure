@@ -30,8 +30,22 @@ const AppRoutes = () => {
             </ProtectedRoute>
           }
         />
-        <Route path="/add-patient" element={<AddPatient />} />
-        <Route path="/doctors" element={<Doctors />} />
+        <Route
+          path="/add-patient"
+          element={
+            <ProtectedRoute>
+              <AddPatient />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/doctors"
+          element={
+            <ProtectedRoute>
+              <Doctors />
+            </ProtectedRoute>
+          }
+        />
       </Routes>
     </BrowserRouter>
   );
