@@ -27,19 +27,23 @@ import {
   Download,
 } from "lucide-react";
 
-import {
-  mockStats,
-  mockRecentActivity,
-  visibleActions as quickActions,
-} from "./data";
+import { mockStats, mockRecentActivity, quickActions } from "./data";
 
 import { useAuth } from "../../contexts/AuthContext";
+
+import { useRoleAccess } from "../../hooks/useRoleAccess";
 
 const Dashboard: React.FC = () => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useAuth();
+
+  const { hasAnyRole } = useRoleAccess();
+
+  const [visibleActions] = useState(
+    quickActions.filter((action) => hasAnyRole(action.allowedRoles))
+  );
 
   const validateData = () => {
     try {
@@ -277,7 +281,7 @@ const Dashboard: React.FC = () => {
                     <BarChart3 className="w-5 h-5 text-gray-400" />
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {quickActions.map((action: any) => (
+                    {visibleActions.map((action: any) => (
                       <Link
                         key={action.id}
                         to={action.path}

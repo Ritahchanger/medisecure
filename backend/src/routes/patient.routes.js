@@ -36,7 +36,6 @@ router.get(
   asyncHandler(patientController.getAllPatients)
 );
 
-
 /**
  * ✅ Get all patient's conditions
  * GET /api/patient's  conditions
@@ -47,7 +46,6 @@ router.get(
   rbac(allowedRoles),
   asyncHandler(patientController.getAllConditions)
 );
-
 
 /**
  * ✅ Get one patient by ID
@@ -80,6 +78,14 @@ router.get(
   auth,
   rbac(allowedRoles),
   asyncHandler(patientController.getSimilarPatients)
+);
+
+
+router.delete(
+  "/:id",
+  auth,
+  rbac(["doctor", "admin"]), // Only doctors and admins can delete
+  asyncHandler(patientController.deletePatient)
 );
 
 module.exports = router;

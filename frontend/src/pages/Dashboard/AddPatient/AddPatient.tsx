@@ -17,7 +17,6 @@ import {
 } from "lucide-react";
 import { patientSchema, type PatientFormData } from "../../../schemas/patient";
 import Layout from "../../../components/Layout/Layout/Layout";
-
 import { patientsAPI } from "../../../services/patient";
 
 const AddPatient: React.FC = () => {
@@ -31,6 +30,7 @@ const AddPatient: React.FC = () => {
   const [currentCondition, setCurrentCondition] = useState("");
   const [currentSymptom, setCurrentSymptom] = useState("");
   const [currentTreatment, setCurrentTreatment] = useState("");
+  const [clinicalNotes, setClinicalNotes] = useState("");
 
   const {
     register,
@@ -38,8 +38,7 @@ const AddPatient: React.FC = () => {
     formState: { errors, isDirty },
     reset,
     setValue,
-    watch,
-  } = useForm<PatientFormData | any>({
+  } = useForm<PatientFormData>({
     resolver: zodResolver(patientSchema),
     mode: "onChange",
     defaultValues: {
@@ -48,9 +47,6 @@ const AddPatient: React.FC = () => {
       treatments: [],
     },
   });
-
-  // Watch the encryptedData field for real-time validation
-  const encryptedData = watch("encryptedData");
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
@@ -118,37 +114,39 @@ const AddPatient: React.FC = () => {
   const onSubmit = async (data: PatientFormData) => {
     setIsSubmitting(true);
     setSubmitError(null);
-  
+
     try {
       console.log("Submitting patient data:", data);
       console.log("Conditions:", conditions);
       console.log("Symptoms:", symptoms);
       console.log("Treatments:", treatments);
+      console.log("Clinical Notes:", clinicalNotes);
       console.log("Files to upload:", selectedFiles);
-  
-      // Ensure arrays are included in the data
+
+      // Prepare data for backend - include clinical notes as a separate field
       const submitData = {
         ...data,
         conditions: conditions,
         symptoms: symptoms,
         treatments: treatments,
+        clinicalNotes: clinicalNotes, // Add clinical notes as a separate field
       };
-  
+
       console.log("Final data to submit:", submitData);
-  
+
       // Call the actual API
       const response = await patientsAPI.create(submitData, selectedFiles);
-  
+
       console.log("Patient created successfully:", response);
-  
+
       setSubmitSuccess(true);
       handleReset();
-  
+
       // Reset success message after 5 seconds
       setTimeout(() => setSubmitSuccess(false), 5000);
     } catch (error: any) {
       console.error("Error adding patient:", error);
-  
+
       // Handle different error types
       if (error.response?.data?.message) {
         setSubmitError(error.response.data.message);
@@ -171,6 +169,7 @@ const AddPatient: React.FC = () => {
     setCurrentCondition("");
     setCurrentSymptom("");
     setCurrentTreatment("");
+    setClinicalNotes("");
     setSubmitError(null);
   };
 
@@ -287,27 +286,23 @@ const AddPatient: React.FC = () => {
                       <div className="space-y-4">
                         <div>
                           <label
-                            htmlFor="encryptedData"
+                            htmlFor="clinicalNotes"
                             className="block text-sm font-medium text-gray-700 mb-2"
                           >
-                            Encrypted Medical Data *
+                            Clinical Notes
                           </label>
                           <textarea
-                            {...register("encryptedData")}
-                            id="encryptedData"
+                            id="clinicalNotes"
+                            value={clinicalNotes}
+                            onChange={(e) => setClinicalNotes(e.target.value)}
                             rows={4}
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none font-mono text-sm"
-                            placeholder="Enter encrypted medical data or clinical notes"
+                            placeholder="Enter clinical notes, observations, diagnosis, and treatment plans"
                           />
-                          {errors.encryptedData && (
-                            <p className="mt-1 text-sm text-red-600 flex items-center">
-                              <AlertCircle className="w-4 h-4 mr-1" />
-                              {errors.encryptedData.message}
-                            </p>
-                          )}
-                          {encryptedData && (
+                          {clinicalNotes && (
                             <p className="mt-1 text-xs text-gray-500">
-                              {encryptedData.length} characters
+                              {clinicalNotes.length} characters - This will be
+                              encrypted and stored securely
                             </p>
                           )}
                         </div>
@@ -537,9 +532,10 @@ const AddPatient: React.FC = () => {
                             HIPAA Compliant Data Protection
                           </h4>
                           <p className="text-sm text-gray-600 mt-1">
-                            All patient information is encrypted using AES-256
-                            encryption. Files are securely stored in Google
-                            Cloud Storage.
+                            All patient information including clinical notes,
+                            conditions, symptoms, and treatments are encrypted
+                            using AES-256 encryption. Files are securely stored
+                            in Google Cloud Storage.
                           </p>
                         </div>
                       </div>

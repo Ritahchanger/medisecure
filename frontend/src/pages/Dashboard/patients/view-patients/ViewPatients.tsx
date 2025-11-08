@@ -23,10 +23,6 @@ import {
   Loader2,
   Shield,
   X,
-  ExternalLink,
-  File,
-  Image,
-  FileArchive,
 } from "lucide-react";
 
 interface DocumentViewerProps {
@@ -35,72 +31,18 @@ interface DocumentViewerProps {
   onClose: () => void;
 }
 
-// Document Viewer Modal Component
+import { useRoleAccess } from "../../../../hooks/useRoleAccess.ts";
 
-// In your DocumentViewer component, update the file display section
+// Document Viewer Modal Component
 const DocumentViewer: React.FC<DocumentViewerProps> = ({
   patient,
   isOpen,
   onClose,
 }) => {
+  const { hasRole } = useRoleAccess();
+  const isDoctor = hasRole("doctor");
+
   if (!isOpen || !patient) return null;
-
-  // Function to extract clean file name from URL
-  const getCleanFileName = (fileUrl: string): string => {
-    // Extract the filename from the URL
-    const fileName = fileUrl.split("/").pop() || "";
-
-    // Remove the timestamp and user ID prefix
-    // Pattern: timestamp-userId-originalFileName
-    const parts = fileName.split("-");
-
-    // Keep the original filename parts (everything after the timestamp and user ID)
-    if (parts.length > 2) {
-      // Remove the first two parts (timestamp and user ID)
-      return parts.slice(2).join("-");
-    }
-
-    // If pattern doesn't match, return the original filename
-    return fileName;
-  };
-
-  const getFileIcon = (fileName: string) => {
-    const extension = fileName.split(".").pop()?.toLowerCase();
-    if (["jpg", "jpeg", "png", "gif", "webp"].includes(extension || "")) {
-      return <Image className="w-5 h-5 text-green-600" />;
-    } else if (["pdf"].includes(extension || "")) {
-      return <FileText className="w-5 h-5 text-red-600" />;
-    } else if (["zip", "rar", "7z"].includes(extension || "")) {
-      return <FileArchive className="w-5 h-5 text-orange-600" />;
-    } else {
-      return <File className="w-5 h-5 text-blue-600" />;
-    }
-  };
-
-  const getFileType = (fileName: string) => {
-    const extension = fileName.split(".").pop()?.toLowerCase();
-    switch (extension) {
-      case "pdf":
-        return "PDF Document";
-      case "jpg":
-      case "jpeg":
-        return "JPEG Image";
-      case "png":
-        return "PNG Image";
-      case "doc":
-      case "docx":
-        return "Word Document";
-      case "xls":
-      case "xlsx":
-        return "Excel Spreadsheet";
-      case "zip":
-        return "ZIP Archive";
-      case "txt":
-        return "Text File";
-      default:
-        return "File";
-    }
-  };
 
   return (
     <div className="fixed inset-0 bg-black/40 bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -113,6 +55,11 @@ const DocumentViewer: React.FC<DocumentViewerProps> = ({
             </h2>
             <p className="text-sm text-gray-600 mt-1">
               {patient.files.length} document(s) available
+              {!isDoctor && (
+                <span className="text-orange-600 ml-2">
+                  (Doctor access required for download)
+                </span>
+              )}
             </p>
           </div>
           <button
@@ -125,10 +72,9 @@ const DocumentViewer: React.FC<DocumentViewerProps> = ({
 
         {/* Documents List */}
         <div className="p-6 overflow-y-auto max-h-[60vh]">
-          {/* In the patient card files section */}
           {patient.files.length > 0 ? (
-            <div className="space-y-1">
-              {patient.files.slice(0, 2).map((file: any, index: number) => {
+            <div className="space-y-3">
+              {patient.files.map((file: any) => {
                 const cleanFileName = file.fileUrl.split("/").pop() || "";
                 const parts = cleanFileName.split("-");
                 const displayName =
@@ -137,30 +83,39 @@ const DocumentViewer: React.FC<DocumentViewerProps> = ({
                 return (
                   <div
                     key={file._id}
-                    className="flex items-center justify-between text-xs"
+                    className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50"
                   >
-                    <span className="text-gray-600 truncate flex-1">
-                      {displayName}
-                    </span>
-                    <a
-                      href={file.fileDownloadUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="ml-2 text-blue-600 hover:text-blue-800"
-                    >
-                      <Download className="w-3 h-3" />
-                    </a>
+                    <div className="flex items-center space-x-3 flex-1">
+                      <FileText className="w-4 h-4 text-gray-400" />
+                      <span className="text-sm text-gray-700 truncate">
+                        {displayName}
+                      </span>
+                    </div>
+                    {isDoctor ? (
+                      <a
+                        href={file.fileDownloadUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center space-x-2 px-3 py-1 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+                      >
+                        <Download className="w-3 h-3" />
+                        <span>Download</span>
+                      </a>
+                    ) : (
+                      <div className="flex items-center space-x-2 px-3 py-1 bg-gray-300 text-gray-600 text-sm rounded-lg cursor-not-allowed">
+                        <Download className="w-3 h-3" />
+                        <span>Download</span>
+                      </div>
+                    )}
                   </div>
                 );
               })}
-              {patient.files.length > 2 && (
-                <div className="text-xs text-gray-500">
-                  +{patient.files.length - 2} more files
-                </div>
-              )}
             </div>
           ) : (
-            <span className="text-sm text-gray-500">No files attached</span>
+            <div className="text-center py-8">
+              <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-500">No files attached</p>
+            </div>
           )}
         </div>
 
@@ -187,6 +142,8 @@ const ViewPatients: React.FC = () => {
   const { patients, stats, loading, error } = useSelector(
     (state: RootState) => state.patients
   );
+
+  const { hasRole, isDoctor } = useRoleAccess();
 
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCondition, setFilterCondition] = useState("");
@@ -215,12 +172,17 @@ const ViewPatients: React.FC = () => {
   });
 
   const handleDeleteClick = (patientId: string) => {
+    if (!isDoctor) {
+      // Show access denied message or prevent action
+      alert("Only doctors can delete patient records.");
+      return;
+    }
     setPatientToDelete(patientId);
     setShowDeleteModal(true);
   };
 
   const confirmDelete = async () => {
-    if (patientToDelete) {
+    if (patientToDelete && isDoctor) {
       await dispatch(deletePatient(patientToDelete));
       setShowDeleteModal(false);
       setPatientToDelete(null);
@@ -239,6 +201,32 @@ const ViewPatients: React.FC = () => {
 
   const getConditionStats = () => {
     return stats.slice(0, 5); // Top 5 conditions
+  };
+
+  // Render download button based on role
+  const renderDownloadButton = (file: any) => {
+    if (isDoctor) {
+      return (
+        <a
+          href={file.fileDownloadUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="ml-2 text-blue-600 hover:text-blue-800 transition-colors"
+          title="Download file"
+        >
+          <Download className="w-3 h-3" />
+        </a>
+      );
+    } else {
+      return (
+        <span
+          className="ml-2 text-gray-400 cursor-not-allowed"
+          title="Doctor access required for download"
+        >
+          <Download className="w-3 h-3" />
+        </span>
+      );
+    }
   };
 
   if (loading) {
@@ -266,6 +254,15 @@ const ViewPatients: React.FC = () => {
             <p className="text-gray-600">
               Manage and view all patient records with encrypted data protection
             </p>
+            {!isDoctor && (
+              <div className="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p className="text-sm text-yellow-800">
+                  <strong>Limited Access:</strong> You can view patient records
+                  but cannot delete patients or download files. Doctor role
+                  required for full access.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Error Alert */}
@@ -428,13 +425,22 @@ const ViewPatients: React.FC = () => {
                           >
                             <Edit className="w-4 h-4" />
                           </button>
-                          <button
-                            onClick={() => handleDeleteClick(patient._id)}
-                            className="p-1 text-gray-400 hover:text-red-600 transition-colors"
-                            title="Delete"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          {isDoctor ? (
+                            <button
+                              onClick={() => handleDeleteClick(patient._id)}
+                              className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                              title="Delete"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          ) : (
+                            <button
+                              className="p-1 text-gray-300 cursor-not-allowed"
+                              title="Doctor access required to delete"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -477,6 +483,11 @@ const ViewPatients: React.FC = () => {
                           <h4 className="text-sm font-medium text-gray-700 flex items-center">
                             <FileText className="w-3 h-3 mr-1" />
                             Files ({patient.files.length})
+                            {!isDoctor && (
+                              <span className="text-xs text-orange-600 ml-2">
+                                (View only)
+                              </span>
+                            )}
                           </h4>
                           {patient.files.length > 0 && (
                             <button
@@ -491,24 +502,27 @@ const ViewPatients: React.FC = () => {
                           <div className="space-y-1">
                             {patient.files
                               .slice(0, 2)
-                              .map((file: any, index: number) => (
-                                <div
-                                  key={file._id}
-                                  className="flex items-center justify-between text-xs"
-                                >
-                                  <span className="text-gray-600 truncate flex-1">
-                                    {file.fileUrl.split("/").pop()}
-                                  </span>
-                                  <a
-                                    href={file.fileDownloadUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="ml-2 text-blue-600 hover:text-blue-800"
+                              .map((file: any, index: number) => {
+                                const cleanFileName =
+                                  file.fileUrl.split("/").pop() || "";
+                                const parts = cleanFileName.split("-");
+                                const displayName =
+                                  parts.length > 2
+                                    ? parts.slice(2).join("-")
+                                    : cleanFileName;
+
+                                return (
+                                  <div
+                                    key={file._id}
+                                    className="flex items-center justify-between text-xs"
                                   >
-                                    <Download className="w-3 h-3" />
-                                  </a>
-                                </div>
-                              ))}
+                                    <span className="text-gray-600 truncate flex-1">
+                                      {displayName}
+                                    </span>
+                                    {renderDownloadButton(file)}
+                                  </div>
+                                );
+                              })}
                             {patient.files.length > 2 && (
                               <div className="text-xs text-gray-500">
                                 +{patient.files.length - 2} more files

@@ -4,7 +4,7 @@ const AuditLog = require("../models/AuditLog");
 const encryptionService = require("./encryption.service");
 const gcs = require("../utils/gcs");
 
-// Extract stats
+// Extract stats from medical data
 function extractMedicalStats(medicalData) {
   return {
     conditions: medicalData.conditions || [],
@@ -25,106 +25,16 @@ function similarityScore(listA, listB) {
 
   return intersection.length / union.size;
 }
-exports.getPatientsByConditions = async (conditions = [], options = {}) => {
-  try {
-    const {
-      limit = 50,
-      skip = 0,
-      sortBy = "createdAt",
-      sortOrder = "desc",
-    } = options;
-
-    // Build query for conditions
-    let query = {};
-    if (conditions.length > 0) {
-      query.conditions = { $in: conditions };
-    }
-
-    const patients = await Patient.find(query)
-      .sort({ [sortBy]: sortOrder === "desc" ? -1 : 1 })
-      .limit(limit)
-      .skip(skip)
-      .populate("createdBy", "name email") // Optional: populate creator info
-      .lean();
-
-    // Decrypt patient data
-    const decryptedPatients = await Promise.all(
-      patients.map(async (p) => {
-        try {
-          const decrypted = await encryptionService.decrypt(p.encryptedData);
-          return {
-            _id: p._id,
-            name: p.name,
-            dob: p.dob,
-            createdBy: p.createdBy,
-            createdAt: p.createdAt,
-            files: p.files,
-            stats: {
-              conditions: p.conditions,
-              symptoms: p.symptoms,
-              treatments: p.treatments,
-            },
-            data: decrypted,
-            // Add condition matching info
-            matchedConditions: p.conditions.filter((condition) =>
-              conditions.includes(condition)
-            ),
-          };
-        } catch (decryptError) {
-          console.error(`❌ Error decrypting patient ${p._id}:`, decryptError);
-          return null;
-        }
-      })
-    );
-
-    // Filter out null values from decryption errors
-    return decryptedPatients.filter((patient) => patient !== null);
-  } catch (err) {
-    console.error("❌ Error retrieving patients by conditions:", err);
-    throw new Error("Failed to fetch patients by conditions");
-  }
-};
-
-exports.getAllUniqueConditions = async () => {
-  const result = await Patient.aggregate([
-    { $unwind: "$conditions" },
-    {
-      $group: {
-        _id: "$conditions",
-        patientCount: { $sum: 1 },
-        // Get some sample patients with this condition
-        samplePatients: {
-          $push: {
-            _id: "$_id",
-            name: "$name",
-            createdAt: "$createdAt",
-          },
-        },
-      },
-    },
-    {
-      $project: {
-        condition: "$_id",
-        patientCount: 1,
-        samplePatients: { $slice: ["$samplePatients", 3] }, // Limit to 3 samples
-        _id: 0,
-      },
-    },
-    { $sort: { patientCount: -1, condition: 1 } },
-  ]);
-
-  return result;
-};
 
 /**
- * ✅ CREATE PATIENT (Supports MULTIPLE FILES)
+ * ✅ CREATE PATIENT - Encrypt all medical data
  */
 exports.createPatient = async (user, data, files = []) => {
   try {
     console.log("=== PATIENT SERVICE CREATE ===");
     let uploadedFiles = [];
 
-    // ✅ Upload all files directly to GCS from memory buffer
+    // ✅ Upload files to GCS
     if (files && files.length > 0) {
       console.log(
         `📤 Processing ${files.length} files for direct GCP upload...`
@@ -138,7 +48,6 @@ exports.createPatient = async (user, data, files = []) => {
             }`;
             console.log(`📄 Uploading directly to GCP: ${file.originalname}`);
 
-            // Use buffer upload instead of file path
             const fileUrl = await gcs.uploadFromBuffer(
               file.buffer,
               fileName,
@@ -167,30 +76,38 @@ exports.createPatient = async (user, data, files = []) => {
       );
     }
 
-    // ✅ Build complete medical JSON for encryption
+    // ✅ Build complete medical JSON for encryption (INCLUDES name and dob)
     const medicalJSON = {
       name: data.name,
       dob: data.dob,
       conditions: data.conditions || [],
       symptoms: data.symptoms || [],
       treatments: data.treatments || [],
-      files: uploadedFiles,
+      allergies: data.allergies || [],
+      medications: data.medications || [],
+      notes: data.notes || "",
+      diagnosis: data.diagnosis || "",
+      clinicalNotes: data.clinicalNotes || "",
+      // files are stored separately in the model, not in encrypted data
     };
 
-    // ✅ Encrypt medical JSON
-    const encrypted = await encryptionService.encrypt(medicalJSON);
+    // ✅ Encrypt the entire medical JSON
+    const encryptedData = await encryptionService.encrypt(medicalJSON);
 
-    // ✅ Extract stats
-    const stats = extractMedicalStats(data);
+    // ✅ Extract stats for quick access (these remain unencrypted for searching)
+    const stats = extractMedicalStats(medicalJSON);
 
-    // ✅ Save patient
+    // ✅ Save patient with encrypted data AND plaintext stats for filtering
     const patient = await Patient.create({
-      name: data.name,
-      dob: data.dob,
-      encryptedData: encrypted,
-      createdBy: user.id,
+      name: data.name, // Keep name unencrypted for display
+      dob: data.dob, // Keep dob unencrypted for display
+      encryptedData: encryptedData, // All medical data encrypted here
       files: uploadedFiles,
-      ...stats,
+      createdBy: user.id,
+      // Store stats as plaintext for aggregation and filtering
+      conditions: stats.conditions,
+      symptoms: stats.symptoms,
+      treatments: stats.treatments,
     });
 
     // ✅ Audit log
@@ -209,8 +126,9 @@ exports.createPatient = async (user, data, files = []) => {
     throw new Error("Failed to create patient");
   }
 };
+
 /**
- * ✅ GET ALL PATIENTS — decrypted
+ * ✅ GET ALL PATIENTS - Decrypt medical data
  */
 exports.getAllPatients = async (user) => {
   try {
@@ -218,22 +136,47 @@ exports.getAllPatients = async (user) => {
 
     const decryptedPatients = await Promise.all(
       patients.map(async (p) => {
-        const decrypted = await encryptionService.decrypt(p.encryptedData);
+        try {
+          // ✅ Decrypt the medical data
+          const decryptedData = await encryptionService.decrypt(
+            p.encryptedData
+          );
 
-        return {
-          _id: p._id,
-          name: p.name,
-          dob: p.dob,
-          createdBy: p.createdBy,
-          createdAt: p.createdAt,
-          files: p.files,
-          stats: {
-            conditions: p.conditions,
-            symptoms: p.symptoms,
-            treatments: p.treatments,
-          },
-          data: decrypted,
-        };
+          return {
+            _id: p._id,
+            name: p.name, // Use unencrypted name from model
+            dob: p.dob, // Use unencrypted dob from model
+            createdBy: p.createdBy,
+            createdAt: p.createdAt,
+            files: p.files,
+            // Use decrypted medical data
+            data: decryptedData,
+            // Stats can come from either decrypted data or plaintext fields
+            stats: {
+              conditions: decryptedData.conditions || [],
+              symptoms: decryptedData.symptoms || [],
+              treatments: decryptedData.treatments || [],
+            },
+          };
+        } catch (decryptError) {
+          console.error(`❌ Error decrypting patient ${p._id}:`, decryptError);
+          // Return basic info if decryption fails
+          return {
+            _id: p._id,
+            name: p.name,
+            dob: p.dob,
+            createdBy: p.createdBy,
+            createdAt: p.createdAt,
+            files: p.files,
+            data: {},
+            stats: {
+              conditions: p.conditions || [],
+              symptoms: p.symptoms || [],
+              treatments: p.treatments || [],
+            },
+            decryptionError: true,
+          };
+        }
       })
     );
 
@@ -250,15 +193,17 @@ exports.getAllPatients = async (user) => {
 };
 
 /**
- * ✅ GET ONE PATIENT (with decryption)
+ * ✅ GET ONE PATIENT - with decryption
  */
 exports.getPatientById = async (user, id) => {
   try {
-    const p = await Patient.findById(id);
+    const patient = await Patient.findById(id);
+    if (!patient) throw new Error("Patient not found");
 
-    if (!p) throw new Error("Patient not found");
-
-    const decrypted = await encryptionService.decrypt(p.encryptedData);
+    // ✅ Decrypt the medical data
+    const decryptedData = await encryptionService.decrypt(
+      patient.encryptedData
+    );
 
     await AuditLog.create({
       user: user.id,
@@ -267,18 +212,20 @@ exports.getPatientById = async (user, id) => {
     });
 
     return {
-      _id: p._id,
-      name: p.name,
-      dob: p.dob,
-      createdBy: p.createdBy,
-      createdAt: p.createdAt,
-      files: p.files,
+      _id: patient._id,
+      name: patient.name, // Use unencrypted name
+      dob: patient.dob, // Use unencrypted dob
+      createdBy: patient.createdBy,
+      createdAt: patient.createdAt,
+      files: patient.files,
+      // All medical data comes from decrypted source
+      data: decryptedData,
+      // Stats from decrypted data
       stats: {
-        conditions: p.conditions,
-        symptoms: p.symptoms,
-        treatments: p.treatments,
+        conditions: decryptedData.conditions || [],
+        symptoms: decryptedData.symptoms || [],
+        treatments: decryptedData.treatments || [],
       },
-      data: decrypted,
     };
   } catch (err) {
     console.error("❌ Error retrieving patient:", err);
@@ -287,7 +234,104 @@ exports.getPatientById = async (user, id) => {
 };
 
 /**
- * ✅ SIMILAR PATIENT CASES
+ * ✅ GET PATIENTS BY CONDITIONS - Uses plaintext fields for filtering
+ */
+exports.getPatientsByConditions = async (conditions = [], options = {}) => {
+  try {
+    const {
+      limit = 50,
+      skip = 0,
+      sortBy = "createdAt",
+      sortOrder = "desc",
+    } = options;
+
+    // Build query using plaintext conditions field for performance
+    let query = {};
+    if (conditions.length > 0) {
+      query.conditions = { $in: conditions };
+    }
+
+    const patients = await Patient.find(query)
+      .sort({ [sortBy]: sortOrder === "desc" ? -1 : 1 })
+      .limit(limit)
+      .skip(skip)
+      .populate("createdBy", "name email")
+      .lean();
+
+    // Decrypt patient data
+    const decryptedPatients = await Promise.all(
+      patients.map(async (p) => {
+        try {
+          const decryptedData = await encryptionService.decrypt(
+            p.encryptedData
+          );
+          return {
+            _id: p._id,
+            name: p.name,
+            dob: p.dob,
+            createdBy: p.createdBy,
+            createdAt: p.createdAt,
+            files: p.files,
+            data: decryptedData,
+            stats: {
+              conditions: decryptedData.conditions || [],
+              symptoms: decryptedData.symptoms || [],
+              treatments: decryptedData.treatments || [],
+            },
+            // Add condition matching info
+            matchedConditions: p.conditions.filter((condition) =>
+              conditions.includes(condition)
+            ),
+          };
+        } catch (decryptError) {
+          console.error(`❌ Error decrypting patient ${p._id}:`, decryptError);
+          return null;
+        }
+      })
+    );
+
+    return decryptedPatients.filter((patient) => patient !== null);
+  } catch (err) {
+    console.error("❌ Error retrieving patients by conditions:", err);
+    throw new Error("Failed to fetch patients by conditions");
+  }
+};
+
+/**
+ * ✅ GET ALL UNIQUE CONDITIONS - Uses plaintext aggregation
+ */
+exports.getAllUniqueConditions = async () => {
+  const result = await Patient.aggregate([
+    { $unwind: "$conditions" },
+    {
+      $group: {
+        _id: "$conditions",
+        patientCount: { $sum: 1 },
+        samplePatients: {
+          $push: {
+            _id: "$_id",
+            name: "$name",
+            createdAt: "$createdAt",
+          },
+        },
+      },
+    },
+    {
+      $project: {
+        condition: "$_id",
+        patientCount: 1,
+        samplePatients: { $slice: ["$samplePatients", 3] },
+        _id: 0,
+      },
+    },
+    { $sort: { patientCount: -1, condition: 1 } },
+  ]);
+
+  return result;
+};
+
+/**
+ * ✅ SIMILAR PATIENT CASES - Uses plaintext fields for comparison
  */
 exports.findSimilarPatients = async (id) => {
   const target = await Patient.findById(id);
@@ -308,8 +352,83 @@ exports.findSimilarPatients = async (id) => {
     .sort((a, b) => b.similarity - a.similarity);
 };
 
+exports.deletePatient = async (user, patientId) => {
+    console.log("=== PATIENT SERVICE DELETE ===");
+    console.log(`🗑️ Deleting patient: ${patientId}`);
+    console.log(`👤 Requested by user: ${user.id}`);
+
+    // Find the patient first
+    const patient = await Patient.findById(patientId);
+    if (!patient) {
+      throw new Error("Patient not found");
+    }
+
+    // ✅ Delete all files from Google Cloud Storage
+    if (patient.files && patient.files.length > 0) {
+      console.log(`📁 Deleting ${patient.files.length} files from GCS...`);
+
+      const deleteFilePromises = patient.files.map(async (file) => {
+        try {
+          // Extract filename from GCS URL (gs://bucket-name/filename)
+          const gcsUrl = file.fileUrl;
+          const fileName = gcsUrl.replace(
+            `gs://${process.env.GCS_BUCKET}/`,
+            ""
+          );
+
+          console.log(`🗑️ Deleting file from GCS: ${fileName}`);
+          await gcs.deleteFromGCS(fileName);
+          console.log(`✅ Successfully deleted file: ${fileName}`);
+
+          return fileName;
+        } catch (fileError) {
+          console.error(`❌ Failed to delete file ${file.fileUrl}:`, fileError);
+          // Don't throw here - we want to continue deleting other files and the patient record
+          // Log the error but continue with patient deletion
+          return null;
+        }
+      });
+
+      // Wait for all file deletions to complete
+      await Promise.allSettled(deleteFilePromises);
+      console.log(
+        `✅ Completed file deletion process for patient ${patientId}`
+      );
+    } else {
+      console.log(`ℹ️ No files to delete for patient ${patientId}`);
+    }
+
+    // ✅ Delete the patient record from database
+    const deletedPatient = await Patient.findByIdAndDelete(patientId);
+    if (!deletedPatient) {
+      throw new Error("Failed to delete patient record from database");
+    }
+
+    // ✅ Create audit log for deletion
+    await AuditLog.create({
+      user: user.id,
+      action: "DELETE_PATIENT",
+      targetPatient: patientId,
+      metadata: {
+        patientName: patient.name,
+        filesDeleted: patient.files?.length || 0,
+        deletedAt: new Date(),
+      },
+    });
+
+    console.log(`✅ Patient ${patientId} deleted successfully`);
+
+    return {
+      message: "Patient and all associated files deleted successfully",
+      patientId: patientId,
+      patientName: patient.name,
+      filesDeleted: patient.files?.length || 0,
+      deletedAt: new Date(),
+    };
+};
+
 /**
- * ✅ GLOBAL STATS (Big Data aggregation)
+ * ✅ GLOBAL STATS - Uses plaintext aggregation
  */
 exports.getPatientStats = async () => {
   const result = await Patient.aggregate([

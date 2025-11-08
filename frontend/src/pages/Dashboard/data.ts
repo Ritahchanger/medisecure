@@ -4,7 +4,7 @@ import {
   type QuickAction,
 } from "../../schemas/dashboard";
 
-import { useRoleAccess } from "../../hooks/useRoleAccess";
+
 
 export const mockStats: DashboardStats = {
   totalPatients: 1247,
@@ -96,8 +96,3 @@ export const quickActions: QuickAction[] = [
   },
 ];
 
-const { hasAnyRole } = useRoleAccess();
-
-export const visibleActions = quickActions.filter((action) =>
-  hasAnyRole(action.allowedRoles as any)
-);

@@ -13,22 +13,11 @@ const FileSchema = new mongoose.Schema({
 const PatientSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
-
     dob: { type: String, required: true },
-
     encryptedData: { type: String, required: true },
-
     files: [FileSchema],
-
-    conditions: [{ type: String }],
-
-    symptoms: [{ type: String }],
-
-    treatments: [{ type: String }],
-
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   },
-
   { timestamps: true }
 );
 

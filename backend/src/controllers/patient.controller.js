@@ -55,33 +55,93 @@ exports.createPatient = async (req, res) => {
     });
   }
 
-  // Validate required fields
-  if (!patientData.name || !patientData.dob || !patientData.encryptedData) {
+  // ✅ FIXED: Remove encryptedData validation - only check name and dob
+  if (!patientData.name || !patientData.dob) {
     console.log("❌ Missing required fields in patientData");
     return res.status(400).json({
       success: false,
-      message: "Name, DOB, and encryptedData are required fields",
+      message: "Name and Date of Birth are required fields",
     });
   }
 
+  // ✅ Add default values for optional fields
+  const processedData = {
+    name: patientData.name,
+    dob: patientData.dob,
+    conditions: patientData.conditions || [],
+    symptoms: patientData.symptoms || [],
+    treatments: patientData.treatments || [],
+    clinicalNotes: patientData.clinicalNotes || "",
+    // Add other optional fields that your service expects
+    allergies: patientData.allergies || [],
+    medications: patientData.medications || [],
+    notes: patientData.notes || "",
+    diagnosis: patientData.diagnosis || "",
+  };
+
   console.log("👤 User from auth:", req.user);
   console.log("📁 Files to process:", req.files ? req.files.length : 0);
+  console.log("📊 Processed data for service:", processedData);
 
-  // Call the service with the correct parameters
-  console.log("🔄 Calling patientService.createPatient...");
-  const result = await patientService.createPatient(
-    req.user,
-    patientData,
-    req.files || []
-  );
+  try {
+    // Call the service with the processed data
+    console.log("🔄 Calling patientService.createPatient...");
+    const result = await patientService.createPatient(
+      req.user,
+      processedData, // Use the processed data with defaults
+      req.files || []
+    );
 
-  console.log("✅ Patient created successfully:", result.patientId);
+    console.log("✅ Patient created successfully:", result.patientId);
 
-  res.status(201).json({
-    success: true,
-    message: "Patient created successfully",
-    data: result,
-  });
+    res.status(201).json({
+      success: true,
+      message: "Patient created successfully",
+      data: result,
+    });
+  } catch (error) {
+    console.error("❌ Error in patient service:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message || "Failed to create patient",
+    });
+  }
+};
+
+exports.deletePatient = async (req, res) => {
+    console.log("=== DELETE PATIENT CONTROLLER ===");
+    console.log(`🗑️ Patient ID to delete: ${req.params.id}`);
+    console.log(`👤 User making request:`, req.user);
+
+    const { id } = req.params;
+
+    // Validate patient ID
+    if (!id) {
+      console.log("❌ Patient ID is required");
+      return res.status(400).json({
+        success: false,
+        message: "Patient ID is required",
+      });
+    }
+
+    console.log("🔄 Calling patientService.deletePatient...");
+
+    // Call the service to delete patient and all files
+    const result = await patientService.deletePatient(req.user, id);
+
+    console.log(`✅ Patient deletion completed: ${result.patientId}`);
+    console.log(`📁 Files deleted: ${result.filesDeleted}`);
+
+    res.json({
+      success: true,
+      message: result.message,
+      data: {
+        patientId: result.patientId,
+        patientName: result.patientName,
+        filesDeleted: result.filesDeleted,
+        deletedAt: result.deletedAt,
+      },
+    });
 };
 
 /**
