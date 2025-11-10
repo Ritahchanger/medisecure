@@ -50,4 +50,9 @@ export const authAPI = {
     const response = await authClient.post("/auth/refresh-token", { token });
     return response.data;
   },
+
+  logOut: async (): Promise<any> => {
+    const response = await authClient.post("/auth/logout");
+    return response.data;
+  },
 };

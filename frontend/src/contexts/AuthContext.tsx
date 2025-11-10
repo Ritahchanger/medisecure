@@ -148,33 +148,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  const logout = () => {
-    setUser(null);
-    setToken(null);
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
+  const logout = async (): Promise<void> => {
+    try {
+      setIsLoading(true);
+
+      // Call the logout API
+      await authAPI.logOut();
+    } catch (error: any) {
+      console.error("Logout API error:", error);
+      // Even if API call fails, clear client-side data
+    } finally {
+      setUser(null);
+      setToken(null);
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      // Redirect to login page
+      window.location.href = "/login";
+    }
   };
 
   const hasRole = (roles: UserRole | UserRole[]): boolean => {
     if (!user || !user.role) return false;
-    
+
     const rolesToCheck = Array.isArray(roles) ? roles : [roles];
     return rolesToCheck.includes(user.role);
   };
 
   const hasPermission = (permission: string): boolean => {
     if (!user || !user.role) return false;
-    
+
     const userPermissions = rolePermissions[user.role] || [];
     return userPermissions.includes(permission);
   };
 
   const canAccess = (requiredRole: UserRole, resource?: string): boolean => {
     if (!user || !user.role) return false;
-    
+
     const userRoleLevel = roleHierarchy[user.role];
     const requiredRoleLevel = roleHierarchy[requiredRole];
-    
+
     return userRoleLevel >= requiredRoleLevel;
   };
 

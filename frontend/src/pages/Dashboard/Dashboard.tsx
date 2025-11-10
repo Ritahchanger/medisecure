@@ -15,7 +15,6 @@ import {
   Activity,
   AlertTriangle,
   CheckCircle,
-  Shield,
   FileText,
   Stethoscope,
   Calendar,
@@ -32,6 +31,8 @@ import { mockStats, mockRecentActivity, quickActions } from "./data";
 import { useAuth } from "../../contexts/AuthContext";
 
 import { useRoleAccess } from "../../hooks/useRoleAccess";
+
+import AuthLog from "./AuthLogs/AuthLog";
 
 const Dashboard: React.FC = () => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -372,7 +373,7 @@ const Dashboard: React.FC = () => {
             </div>
 
             {/* System Status */}
-            <div className="mt-8 bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+            {/* <div className="mt-8 bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
               <div className="flex items-center justify-between mb-6">
                 <div>
                   <h2 className="text-lg font-semibold text-gray-900">
@@ -417,7 +418,19 @@ const Dashboard: React.FC = () => {
                   </div>
                 </div>
               </div>
-            </div>
+            </div> */}
+
+            {hasAnyRole(["admin"]) && (
+              <div className="mb-6 mt-[3rem]">
+                <h1 className="text-3xl font-bold text-gray-900">
+                  Security Dashboard
+                </h1>
+                <p className="text-gray-600 mt-2">
+                  Monitor and review authentication activities
+                </p>
+                <AuthLog />
+              </div>
+            )}
           </div>
         </div>
       </div>

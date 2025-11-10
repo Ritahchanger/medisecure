@@ -7,6 +7,8 @@ const patientRoutes = require("./routes/patient.routes");
 
 const adminRoutes = require("./routes/admin.routes");
 
+const doctorRoutes = require("./routes/doctors.routes");
+
 const logger = require("./utils/logger");
 
 const errorMiddleware = require("./middleware/errorMiddleware");
@@ -36,6 +38,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api/patients", patientRoutes);
 
 app.use("/api/admins", adminRoutes);
+
+app.use("/api/doctors", doctorRoutes);
 
 // ===== ERROR HANDLING (must be last!) =====
 app.use(errorMiddleware);

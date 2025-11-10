@@ -18,114 +18,53 @@ import {
   UserPlus,
   UserCheck,
   UserX,
+  RefreshCw,
+  AlertCircle,
 } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
 
-interface MedicalStaff {
-  _id: string;
-  name: string;
-  email: string;
-  role: "admin" | "doctor" | "nurse";
-  createdAt: string;
-  lastActive?: string;
-  patientCount?: number;
-}
+import type { Doctor } from "../../../types";
+
+import { doctorService } from "../../../services/doctor";
 
 const Doctors: React.FC = () => {
-  const [staff, setStaff] = useState<MedicalStaff[]>([]);
-  const [filteredStaff, setFilteredStaff] = useState<MedicalStaff[]>([]);
+  const [staff, setStaff] = useState<Doctor[]>([]);
+  const [filteredStaff, setFilteredStaff] = useState<Doctor[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedRole, setSelectedRole] = useState("all");
   const { user } = useAuth();
 
-  // Mock data - replace with actual API call to get users
-  useEffect(() => {
-    const fetchMedicalStaff = async () => {
-      setIsLoading(true);
-      // Simulate API call - replace with: const response = await usersAPI.getAll();
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+  // Fetch doctors from API
+  const fetchDoctors = async (showRefresh = false) => {
+    try {
+      if (showRefresh) {
+        setIsRefreshing(true);
+      } else {
+        setIsLoading(true);
+      }
+      setError(null);
 
-      const mockStaff: MedicalStaff[] = [
-        {
-          _id: "1",
-          name: "Dr. Sarah Chen",
-          email: "sarah.chen@medicalcenter.com",
-          role: "doctor",
-          createdAt: "2022-03-15T00:00:00.000Z",
-          lastActive: "2024-01-15T08:30:00.000Z",
-          patientCount: 1247,
-        },
-        {
-          _id: "2",
-          name: "Dr. Michael Rodriguez",
-          email: "m.rodriguez@medicalcenter.com",
-          role: "doctor",
-          createdAt: "2021-07-22T00:00:00.000Z",
-          lastActive: "2024-01-15T09:15:00.000Z",
-          patientCount: 892,
-        },
-        {
-          _id: "3",
-          name: "Emily Watson, RN",
-          email: "e.watson@medicalcenter.com",
-          role: "nurse",
-          createdAt: "2020-11-08T00:00:00.000Z",
-          lastActive: "2024-01-14T16:45:00.000Z",
-          patientCount: 345,
-        },
-        {
-          _id: "4",
-          name: "Dr. James Kim",
-          email: "j.kim@medicalcenter.com",
-          role: "doctor",
-          createdAt: "2023-01-30T00:00:00.000Z",
-          lastActive: "2024-01-15T10:00:00.000Z",
-          patientCount: 567,
-        },
-        {
-          _id: "5",
-          name: "Lisa Thompson, RN",
-          email: "l.thompson@medicalcenter.com",
-          role: "nurse",
-          createdAt: "2022-09-14T00:00:00.000Z",
-          lastActive: "2024-01-15T07:30:00.000Z",
-          patientCount: 289,
-        },
-        {
-          _id: "6",
-          name: "Admin User",
-          email: "admin@medicalcenter.com",
-          role: "admin",
-          createdAt: "2020-05-10T00:00:00.000Z",
-          lastActive: "2024-01-15T08:00:00.000Z",
-        },
-        {
-          _id: "7",
-          name: "Dr. Robert Johnson",
-          email: "r.johnson@medicalcenter.com",
-          role: "doctor",
-          createdAt: "2021-12-01T00:00:00.000Z",
-          lastActive: "2024-01-14T17:20:00.000Z",
-          patientCount: 1023,
-        },
-        {
-          _id: "8",
-          name: "Maria Garcia, RN",
-          email: "m.garcia@medicalcenter.com",
-          role: "nurse",
-          createdAt: "2023-03-20T00:00:00.000Z",
-          lastActive: "2024-01-15T11:45:00.000Z",
-          patientCount: 178,
-        },
-      ];
+      const response = await doctorService.getDoctors(1, 100); // Get all doctors
 
-      setStaff(mockStaff);
-      setFilteredStaff(mockStaff);
+      if (response.success) {
+        setStaff(response.doctors);
+      } else {
+        throw new Error("Failed to fetch doctors");
+      }
+    } catch (err: any) {
+      console.error("Error fetching doctors:", err);
+      setError(err.response?.data?.message || "Failed to load medical staff");
+    } finally {
       setIsLoading(false);
-    };
+      setIsRefreshing(false);
+    }
+  };
 
-    fetchMedicalStaff();
+  useEffect(() => {
+    fetchDoctors();
   }, []);
 
   // Filter staff based on search and role
@@ -146,6 +85,24 @@ const Doctors: React.FC = () => {
 
     setFilteredStaff(filtered);
   }, [searchTerm, selectedRole, staff]);
+
+  const handleRefresh = () => {
+    fetchDoctors(true);
+  };
+
+  const handleDeleteDoctor = async (doctorId: string) => {
+    if (!window.confirm("Are you sure you want to delete this staff member?")) {
+      return;
+    }
+
+    try {
+      await doctorService.deleteDoctor(doctorId);
+      // Remove from local state
+      setStaff((prev) => prev.filter((doctor) => doctor._id !== doctorId));
+    } catch (err: any) {
+      alert(err.response?.data?.message || "Failed to delete staff member");
+    }
+  };
 
   const getRoleIcon = (role: string) => {
     switch (role) {
@@ -195,6 +152,8 @@ const Doctors: React.FC = () => {
   };
 
   const getTimeAgo = (dateString: string) => {
+    if (!dateString) return "Never";
+
     const date = new Date(dateString);
     const now = new Date();
     const diffInHours = Math.floor(
@@ -207,7 +166,7 @@ const Doctors: React.FC = () => {
     return formatDate(dateString);
   };
 
-  if (isLoading) {
+  if (isLoading && !isRefreshing) {
     return (
       <Layout>
         <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
@@ -229,9 +188,23 @@ const Doctors: React.FC = () => {
             <div className="mb-8">
               <div className="flex items-center justify-between">
                 <div>
-                  <h1 className="text-3xl font-bold text-gray-900">
-                    Medical Staff
-                  </h1>
+                  <div className="flex items-center gap-4">
+                    <h1 className="text-3xl font-bold text-gray-900">
+                      Medical Staff
+                    </h1>
+                    <button
+                      onClick={handleRefresh}
+                      disabled={isRefreshing}
+                      className="p-2 text-gray-400 hover:text-gray-600 hover:bg-white rounded-lg transition-colors disabled:opacity-50"
+                      title="Refresh data"
+                    >
+                      <RefreshCw
+                        className={`w-5 h-5 ${
+                          isRefreshing ? "animate-spin" : ""
+                        }`}
+                      />
+                    </button>
+                  </div>
                   <p className="text-gray-600 mt-2">
                     Manage and view all healthcare professionals
                   </p>
@@ -247,6 +220,22 @@ const Doctors: React.FC = () => {
                 )}
               </div>
             </div>
+
+            {/* Error Message */}
+            {error && (
+              <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4">
+                <div className="flex items-center">
+                  <AlertCircle className="w-5 h-5 text-red-400 mr-2" />
+                  <span className="text-red-800">{error}</span>
+                  <button
+                    onClick={handleRefresh}
+                    className="ml-auto text-sm text-red-800 hover:text-red-900 underline"
+                  >
+                    Try Again
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Stats Overview */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
@@ -303,9 +292,7 @@ const Doctors: React.FC = () => {
                     <p className="text-2xl font-bold text-gray-900 mt-1">
                       {
                         staff.filter((s) => {
-                          const lastActive = new Date(
-                            s.lastActive || s.createdAt
-                          );
+                          const lastActive = new Date(s.createdAt); // Using createdAt as fallback
                           const today = new Date();
                           return (
                             lastActive.toDateString() === today.toDateString()
@@ -346,7 +333,7 @@ const Doctors: React.FC = () => {
                     <option value="all">All Roles</option>
                     <option value="doctor">Doctors</option>
                     <option value="nurse">Nurses</option>
-                    <option value="admin">Administrators</option>
+              
                   </select>
 
                   <button className="flex items-center px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
@@ -367,7 +354,13 @@ const Doctors: React.FC = () => {
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center space-x-3">
                       <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
-                        <User className="w-6 h-6 text-white" />
+                        <span className="text-white font-semibold text-sm">
+                          {person.name
+                            .split(" ")
+                            .map((n) => n[0])
+                            .join("")
+                            .toUpperCase()}
+                        </span>
                       </div>
                       <div>
                         <h3 className="font-semibold text-gray-900">
@@ -385,9 +378,13 @@ const Doctors: React.FC = () => {
                         </div>
                       </div>
                     </div>
-                    <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-                      <MoreVertical className="w-4 h-4 text-gray-400" />
-                    </button>
+                    {user?.role === "admin" && (
+                      <div className="relative">
+                        <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                          <MoreVertical className="w-4 h-4 text-gray-400" />
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   <div className="space-y-3 mb-4">
@@ -401,12 +398,10 @@ const Doctors: React.FC = () => {
                       <span>Joined {formatDate(person.createdAt)}</span>
                     </div>
 
-                    {person.lastActive && (
-                      <div className="flex items-center text-sm text-gray-600">
-                        <Clock className="w-4 h-4 mr-2" />
-                        <span>Active {getTimeAgo(person.lastActive)}</span>
-                      </div>
-                    )}
+                    <div className="flex items-center text-sm text-gray-600">
+                      <Clock className="w-4 h-4 mr-2" />
+                      <span>Active {getTimeAgo(person.createdAt)}</span>
+                    </div>
 
                     {person.patientCount !== undefined && (
                       <div className="flex items-center text-sm text-gray-600">
@@ -420,32 +415,53 @@ const Doctors: React.FC = () => {
 
                   <div className="flex items-center justify-between pt-4 border-t border-gray-100">
                     <div className="flex space-x-2">
-                      <button className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                      <Link
+                        to={`/staff/${person._id}`}
+                        className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                      >
                         <Eye className="w-4 h-4" />
-                      </button>
+                      </Link>
                       {user?.role === "admin" && (
-                        <button className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors">
-                          <Edit className="w-4 h-4" />
-                        </button>
+                        <>
+                          <Link
+                            to={`/staff/edit/${person._id}`}
+                            className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </Link>
+                          <button
+                            onClick={() => handleDeleteDoctor(person._id)}
+                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          >
+                            <UserX className="w-4 h-4" />
+                          </button>
+                        </>
                       )}
                     </div>
-                    <button className="flex items-center px-3 py-1.5 text-sm bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors">
+                    <a
+                      href={`mailto:${person.email}`}
+                      className="flex items-center px-3 py-1.5 text-sm bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors"
+                    >
                       <Mail className="w-3 h-3 mr-1" />
                       Contact
-                    </button>
+                    </a>
                   </div>
                 </div>
               ))}
             </div>
 
-            {filteredStaff.length === 0 && (
+            {filteredStaff.length === 0 && !isLoading && (
               <div className="text-center py-12">
                 <UserX className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 mb-2">
-                  No staff members found
+                  {staff.length === 0
+                    ? "No staff members yet"
+                    : "No staff members found"}
                 </h3>
                 <p className="text-gray-600 mb-6">
-                  Try adjusting your search criteria or filters.
+                  {searchTerm || selectedRole !== "all"
+                    ? "Try adjusting your search criteria or filters."
+                    : "Get started by adding your first staff member."}
                 </p>
                 {user?.role === "admin" && (
                   <Link

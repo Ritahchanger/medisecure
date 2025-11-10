@@ -1,21 +1,109 @@
 const mongoose = require("mongoose");
 
-const AuditLogSchema = new mongoose.Schema({
-  user: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
-    required: true,
+const AuthLogSchema = new mongoose.Schema(
+  {
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: false, 
+    },
+    email: {
+      type: String,
+      required: true,
+      lowercase: true,
+    },
+    action: {
+      type: String,
+      enum: [
+        "login_success",
+        "login_failed",
+        "logout",
+        "register",
+        "password_change",
+        "token_refresh",
+      ],
+      required: true,
+    },
+    ipAddress: {
+      type: String,
+      required: true,
+    },
+    userAgent: {
+      type: String,
+      required: false,
+    },
+    failureReason: {
+      type: String,
+      enum: [
+        "invalid_password",
+        "user_not_found",
+        "account_locked",
+        "invalid_token",
+        "expired_token",
+        "none",
+      ],
+      default: "none",
+    },
+    location: {
+      country: String,
+      city: String,
+      region: String,
+    },
+    deviceInfo: {
+      browser: String,
+      os: String,
+      device: String,
+      isMobile: Boolean,
+    },
+    timestamp: {
+      type: Date,
+      default: Date.now,
+    },
   },
+  {
+    timestamps: true,
+    indexes: [
+      { email: 1, timestamp: -1 },
+      { ipAddress: 1, timestamp: -1 },
+      { userId: 1, timestamp: -1 },
+    ],
+  }
+);
 
-  action: { type: String, required: true }, // VIEW_PATIENT, CREATE_PATIENT, LOGIN, etc
+// Static method to check for suspicious activity
+AuthLogSchema.statics.checkSuspiciousActivity = async function (
+  email,
+  ipAddress,
+  thresholdMinutes = 5,
+  maxAttempts = 5
+) {
+  const thresholdTime = new Date(Date.now() - thresholdMinutes * 60 * 1000);
 
-  targetPatient: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Patient",
-    required: false,
-  },
+  const recentFailures = await this.countDocuments({
+    email,
+    action: "login_failed",
+    timestamp: { $gte: thresholdTime },
+  });
 
-  timestamp: { type: Date, default: Date.now },
-});
+  const ipFailures = await this.countDocuments({
+    ipAddress,
+    action: "login_failed",
+    timestamp: { $gte: thresholdTime },
+  });
 
-module.exports = mongoose.model("AuditLog", AuditLogSchema);
+  return {
+    isSuspicious: recentFailures >= maxAttempts || ipFailures >= maxAttempts,
+    userFailures: recentFailures,
+    ipFailures: ipFailures,
+  };
+};
+
+// Method to get user's login history
+AuthLogSchema.statics.getUserAuthHistory = async function (userId, limit = 50) {
+  return this.find({ userId })
+    .sort({ timestamp: -1 })
+    .limit(limit)
+    .select("action ipAddress location deviceInfo timestamp failureReason");
+};
+
+module.exports = mongoose.model("AuthLog", AuthLogSchema);
