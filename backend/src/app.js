@@ -7,7 +7,6 @@ const patientRoutes = require("./routes/patient.routes");
 
 const adminRoutes = require("./routes/admin.routes");
 
-
 const logger = require("./utils/logger");
 
 const errorMiddleware = require("./middleware/errorMiddleware");
@@ -16,7 +15,9 @@ const app = express();
 
 // ===== Global Middlewares =====
 app.use(cors());
+
 app.use(express.json());
+
 app.use(logger);
 
 // ===== Health Check =====
@@ -25,11 +26,16 @@ app.get("/health", (req, res) => {
 });
 
 // ===== API Routes =====
+
+app.get("/", (req, res) => {
+  return res.send("Welcome to the Healthcare Management System API");
+});
+
 app.use("/api/auth", authRoutes);
 
 app.use("/api/patients", patientRoutes);
 
-app.use("/api/admins",  adminRoutes );
+app.use("/api/admins", adminRoutes);
 
 // ===== ERROR HANDLING (must be last!) =====
 app.use(errorMiddleware);

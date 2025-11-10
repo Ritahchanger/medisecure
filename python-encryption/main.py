@@ -9,14 +9,7 @@ from dotenv import load_dotenv  # ✅ Add this import
 # ✅ Load environment variables from .env file
 load_dotenv()
 
-print("🔧 Python Service Configuration:")
-print("INTERNAL_API_KEY:", os.environ.get("INTERNAL_API_KEY"))
-print("INTERNAL_API_KEY length:", len(os.environ.get("INTERNAL_API_KEY", "")))
 
-# Internal service-to-service secret
-INTERNAL_API_KEY = os.environ.get("INTERNAL_API_KEY", "DEFAULT_SERVICE_SECRET").strip()
-print(f"🔑 Using INTERNAL_API_KEY: '{INTERNAL_API_KEY}'")
-print(f"🔑 INTERNAL_API_KEY length: {len(INTERNAL_API_KEY)}")
 
 KEY_FILE = "secret.key"
 

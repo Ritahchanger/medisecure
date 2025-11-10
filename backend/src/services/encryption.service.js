@@ -10,9 +10,6 @@ if (!PYTHON_SERVICE_URL) {
   throw new Error("❌ PYTHON_SERVICE_URL is missing in environment variables");
 }
 
-console.log("🔧 Encryption Service Configuration:");
-console.log("Python Service URL:", PYTHON_SERVICE_URL);
-console.log("Internal API Key:", INTERNAL_API_KEY ? "Set" : "Not set");
 
 module.exports = {
   encrypt: async (data) => {

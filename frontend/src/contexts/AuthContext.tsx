@@ -105,7 +105,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       const response = await authAPI.login({ email, password });
 
       if (response.user && response.token) {
-        setUser(response.user);
+        setUser(response.user as any);
         setToken(response.token);
 
         localStorage.setItem("token", response.token);

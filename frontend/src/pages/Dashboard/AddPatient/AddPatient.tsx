@@ -38,7 +38,7 @@ const AddPatient: React.FC = () => {
     formState: { errors, isDirty },
     reset,
     setValue,
-  } = useForm<PatientFormData>({
+  } = useForm<PatientFormData | any>({
     resolver: zodResolver(patientSchema),
     mode: "onChange",
     defaultValues: {
@@ -223,7 +223,10 @@ const AddPatient: React.FC = () => {
           <div className="bg-white rounded-2xl shadow-lg border border-gray-200">
             {/* Form Content */}
             <div className="p-6">
-              <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+              <form
+                onSubmit={handleSubmit(onSubmit as any)}
+                className="space-y-6"
+              >
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   {/* Left Column - Personal Details & Files */}
                   <div className="space-y-6">
@@ -250,7 +253,7 @@ const AddPatient: React.FC = () => {
                           {errors.name && (
                             <p className="mt-1 text-sm text-red-600 flex items-center">
                               <AlertCircle className="w-4 h-4 mr-1" />
-                              {errors.name.message}
+                              {errors.name.message as string}
                             </p>
                           )}
                         </div>
@@ -271,7 +274,7 @@ const AddPatient: React.FC = () => {
                           {errors.dob && (
                             <p className="mt-1 text-sm text-red-600 flex items-center">
                               <AlertCircle className="w-4 h-4 mr-1" />
-                              {errors.dob.message}
+                              {errors.dob.message as string}
                             </p>
                           )}
                         </div>

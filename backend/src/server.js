@@ -5,7 +5,7 @@ const connectDB = require("./config/db");
 loadEnv(); // load environment variables
 connectDB(); // connect to database
 
-const PORT = process.env.PORT || 4000;
+const PORT = process.env.PORT || 5001;
 
 app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
